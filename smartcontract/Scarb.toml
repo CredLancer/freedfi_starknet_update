@@ -1,0 +1,16 @@
+[package]
+name = "freefi_starknet1"
+version = "0.1.0"
+
+# See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
+
+[dependencies]
+starknet = ">=2.3.0-rc0"
+nimbora_toolkit = { path = "Nimbora-toolkit" }
+snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.10.1" }
+
+[tool.snforge]
+
+
+[[target.starknet-contract]]
+path = "nimbora_toolkit/contracts/l2/src/pooling4626/pooling4626.cairo"
