@@ -4,6 +4,7 @@ import { ThemeProvider } from '../components/theme-provider';
 import { Providers } from './providers';
 import store from '@/store';
 import { Provider as ReduxProvider } from 'react-redux';
+import { StarknetProvider } from '@/components/starknet-provider';
 
 export default function RootLayout({
   children,
@@ -20,7 +21,7 @@ export default function RootLayout({
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange>
-            <Providers>{children}</Providers>
+            <StarknetProvider>{children}</StarknetProvider>
           </ThemeProvider>
         </ReduxProvider>
       </body>
