@@ -1,9 +1,28 @@
 use starknet::{
     get_contract_address, deploy_syscall, ClassHash, contract_address_const, ContractAddress,
 };
-use starknet::testing::{set_caller_address, set_contract_address};
+use starknet::testing::{set_caller_address, set_contract_address, pop_log_raw};
 
 use freefi::lending::{ILendingPlatformDispatcher, ILendingPlatformDispatcherTrait, LendingPlatform};
+use freefi::lending::LendingPlatform::{Borrowed, Repaid};
+
+/// FROM https://github.com/OpenZeppelin/cairo-contracts/blob/258daba0f4e85fcc8bc1f142ce1b2bdf328453b3/src/tests/utils.cairo
+/// Pop the earliest unpopped logged event for the contract as the requested type
+/// and checks there's no more data left on the event, preventing unaccounted params.
+/// This function also removes the hashed event-name key to support indexed event
+/// members.
+fn pop_log<T, impl TDrop: Drop<T>, impl TEvent: starknet::Event<T>>(
+    address: ContractAddress
+) -> Option<T> {
+    let (mut keys, mut data) = pop_log_raw(address)?;
+
+    // Remove the event ID from the keys.
+    keys.pop_front();
+
+    let ret = starknet::Event::deserialize(ref keys, ref data);
+    assert(data.is_empty(), 'Event has extra data');
+    ret
+}
 
 fn alice() -> ContractAddress {
     contract_address_const::<42>()
@@ -53,11 +72,17 @@ fn test_borrow() {
     let lender = alice();
     let borrower = bob();
     let lending = deploy();
-    lending.deposit(lender, 50);
+    let amount = 30;
+    let deposit = 50;
+    lending.deposit(lender, deposit);
     set_contract_address(lender);
-    lending.borrow(lender, borrower, 30);
-    assert(lending.getBalance(lender) == 20, 'Invalid balance');
-    assert(lending.getBorrowedAmount(borrower) == 30, 'Invalid borrowed amount');
+    lending.borrow(lender, borrower, amount);
+    assert(lending.getBalance(lender) == deposit - amount, 'Invalid balance');
+    assert(lending.getBorrowedAmount(borrower) == amount, 'Invalid borrowed amount');
+    let event = pop_log::<Borrowed>(lending.contract_address).unwrap();
+    assert(event.lender == lender, 'Wrong lender in event');
+    assert(event.borrower == borrower, 'Wrong borrower in event');
+    assert(event.amount == amount, 'Wrong amount in event');
 }
 
 #[test]
@@ -108,6 +133,11 @@ fn test_repay() {
     lending.repay(lender, borrower, amount);
     assert(lending.getBalance(lender) == deposit, 'Invalid balance after repay');
     assert(lending.getBorrowedAmount(borrower) == 0, 'Invalid borrowed amount');
+    let event = pop_log::<Repaid>(lending.contract_address).unwrap();
+    assert(event.lender == lender, 'Wrong lender in event');
+    assert(event.borrower == borrower, 'Wrong borrower in event');
+    assert(event.amount == amount, 'Wrong amount in event');
+
 }
 
 #[test]

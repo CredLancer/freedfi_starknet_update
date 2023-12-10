@@ -73,6 +73,7 @@ mod LendingPlatform{
             self.has_active_loan.write(borrower, true);
             self.borrowed_amount.write(borrower, amount);
             self.balances.write(lender, balance);
+            self.emit(Borrowed { lender: lender, borrower: borrower, amount: amount})
         }
 
         fn repay(ref self: ContractState, lender: ContractAddress, borrower: ContractAddress, amount: u256) {
@@ -85,6 +86,7 @@ mod LendingPlatform{
             self.balances.write(lender, balance + amount);
             self.borrowed_amount.write(borrower, 0);
             self.has_active_loan.write(borrower, false);
+            self.emit(Repaid { lender: lender, borrower: borrower, amount: amount})
         }
 
         fn getBalance(self: @ContractState, lender: ContractAddress) -> u256 {
