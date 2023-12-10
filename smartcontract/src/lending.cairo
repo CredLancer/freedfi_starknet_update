@@ -2,7 +2,7 @@ use starknet::ContractAddress;
 use freefi::interfaces::nimbora::IPooling4626Dispatcher;
 
 #[starknet::interface]
-trait LendingPlatformTrait<T> {
+trait ILendingPlatform<T> {
     fn deposit(ref self: T, address: ContractAddress, amount: u256);
     fn borrow(ref self: T, lender: ContractAddress, borrower: ContractAddress, amount: u256);
     fn repay(ref self: T, lender: ContractAddress, borrower: ContractAddress, amount: u256);
@@ -53,7 +53,7 @@ mod LendingPlatform{
     }
 
     #[external(v0)]
-    impl LendingPlatformImpl of super::LendingPlatformTrait<ContractState> {
+    impl LendingPlatformImpl of super::ILendingPlatform<ContractState> {
         fn deposit(ref self: ContractState, address: ContractAddress, amount: u256) {
             self.only_owner();
             assert(amount > 0, 'Amount must be greater than 0');
