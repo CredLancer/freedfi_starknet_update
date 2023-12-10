@@ -1,1 +1,3 @@
-mod get-a-loan
+mod lending;
+mod interfaces;
+mod tests;
