@@ -6,6 +6,7 @@ use starknet::ContractAddress;
 
 #[starknet::interface]
 trait ISimpleCredentialsVerifier<T> {
+    fn transfer_ownership(ref self: T, new_owner: ContractAddress);
     fn addSkill(ref self: T, freelancer: ContractAddress, skill: u64);
     fn addContract(ref self: T, freelancer: ContractAddress, client: ContractAddress, skills: u64, amount: u256);
 
@@ -35,6 +36,18 @@ mod SimpleCredentialsVerifier{
         skills: LegacyMap<ContractAddress, List<u64>>,
     }
 
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    enum Event {
+        OwnerShipTransferred: OwnerShipTransferred,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct OwnerShipTransferred {
+        previous_owner: ContractAddress,
+        new_owner: ContractAddress,
+    }
+
     #[constructor]
     fn constructor(ref self: ContractState) {
         self.owner.write(get_caller_address());
@@ -42,14 +55,20 @@ mod SimpleCredentialsVerifier{
 
     #[external(v0)]
     impl SimpleCredentialsVerifierImpl of super::ISimpleCredentialsVerifier<ContractState> {
+        fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+            assert(new_owner.is_non_zero(), 'New owner can\'t be zero');
+            self._only_owner();
+            self._transfer_ownership(new_owner);
+        }
+
         fn addSkill(ref self: ContractState, freelancer: ContractAddress, skill: u64) {
-            self.only_owner();
+            self._only_owner();
             let mut skills = self.skills.read(freelancer);
             skills.append(skill);
         }
 
         fn addContract(ref self: ContractState, freelancer: ContractAddress, client: ContractAddress, skills: u64, amount: u256) {
-            self.only_owner();
+            self._only_owner();
         }
 
         fn hasOpenContracts(self: @ContractState, freelancer: ContractAddress, amount: u256) -> bool {
@@ -73,9 +92,15 @@ mod SimpleCredentialsVerifier{
 
     #[generate_trait]
     impl PrivateMethods of PrivateMethodsTrait {
-        fn only_owner(self: @ContractState) {
+        fn _only_owner(self: @ContractState) {
             let caller = get_caller_address();
             assert(caller == self.owner.read(), 'Caller is not the owner');
+        }
+
+        fn _transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+            let previous_owner: ContractAddress = self.owner.read();
+            self.owner.write(new_owner);
+            self.emit(OwnerShipTransferred{ previous_owner: previous_owner, new_owner: new_owner })
         }
     }
 }

@@ -4,7 +4,7 @@ use starknet::{
 use starknet::testing::{set_caller_address, set_contract_address, pop_log_raw};
 
 use freefi::lending::{ILendingPlatformDispatcher, ILendingPlatformDispatcherTrait, LendingPlatform};
-use freefi::lending::LendingPlatform::{Borrowed, Repaid};
+use freefi::lending::LendingPlatform::{Borrowed, Repaid, OwnerShipTransferred};
 
 /// FROM https://github.com/OpenZeppelin/cairo-contracts/blob/258daba0f4e85fcc8bc1f142ce1b2bdf328453b3/src/tests/utils.cairo
 /// Pop the earliest unpopped logged event for the contract as the requested type
@@ -66,6 +66,16 @@ fn test_deposit_amount_0() {
     let lending = deploy();
     lending.deposit(alice(), 0);
 }
+
+#[test]
+#[available_gas(3000000)]
+#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED'))]
+fn test_deposit_only_owner() {
+    let lending = deploy();
+    set_contract_address(alice());
+    lending.deposit(alice(), 10);
+}
+
 #[test]
 #[available_gas(3000000)]
 fn test_borrow() {
@@ -171,3 +181,14 @@ fn test_repay_not_full_amount() {
     lending.repay(lender, borrower, amount - 5);
 }
 
+#[test]
+#[available_gas(3000000)]
+fn test_transfer_ownership() {
+    let lending = deploy();
+    let new_owner = alice();
+    lending.transfer_ownership(new_owner);
+    set_contract_address(new_owner);
+    lending.deposit(bob(), 10);
+    let event = pop_log::<OwnerShipTransferred>(lending.contract_address).unwrap();
+    assert(event.new_owner == new_owner, 'Wrong new_owner in event');
+}

@@ -3,6 +3,7 @@ use freefi::interfaces::nimbora::IPooling4626Dispatcher;
 
 #[starknet::interface]
 trait ILendingPlatform<T> {
+    fn transfer_ownership(ref self: T, new_owner: ContractAddress);
     fn deposit(ref self: T, address: ContractAddress, amount: u256);
     fn borrow(ref self: T, lender: ContractAddress, borrower: ContractAddress, amount: u256);
     fn repay(ref self: T, lender: ContractAddress, borrower: ContractAddress, amount: u256);
@@ -12,6 +13,7 @@ trait ILendingPlatform<T> {
 
 #[starknet::contract]
 mod LendingPlatform{
+    use core::zeroable::Zeroable;
     use starknet::{ContractAddress, get_caller_address};
 
     #[storage]
@@ -27,6 +29,7 @@ mod LendingPlatform{
     enum Event {
         Borrowed: Borrowed,
         Repaid: Repaid,
+        OwnerShipTransferred: OwnerShipTransferred,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -47,6 +50,12 @@ mod LendingPlatform{
         amount: u256
     }
     
+    #[derive(Drop, starknet::Event)]
+    struct OwnerShipTransferred {
+        previous_owner: ContractAddress,
+        new_owner: ContractAddress,
+    }
+
     #[constructor]
     fn constructor(ref self: ContractState) {
         self.owner.write(get_caller_address());
@@ -54,8 +63,14 @@ mod LendingPlatform{
 
     #[external(v0)]
     impl LendingPlatformImpl of super::ILendingPlatform<ContractState> {
+        fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+            assert(new_owner.is_non_zero(), 'New owner can\'t be zero');
+            self._only_owner();
+            self._transfer_ownership(new_owner);
+        }
+
         fn deposit(ref self: ContractState, address: ContractAddress, amount: u256) {
-            self.only_owner();
+            self._only_owner();
             assert(amount > 0, 'Amount must be greater than 0');
             let balance = self.balances.read(address);
             self.balances.write(address, balance + amount);
@@ -100,11 +115,16 @@ mod LendingPlatform{
 
     #[generate_trait]
     impl PrivateMethods of PrivateMethodsTrait {
-        fn only_owner(self: @ContractState) {
+        fn _only_owner(self: @ContractState) {
             let caller = get_caller_address();
             assert(caller == self.owner.read(), 'Caller is not the owner');
         }
-    }
 
+        fn _transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+            let previous_owner: ContractAddress = self.owner.read();
+            self.owner.write(new_owner);
+            self.emit(OwnerShipTransferred{ previous_owner: previous_owner, new_owner: new_owner })
+        }
+    }
 }
 
