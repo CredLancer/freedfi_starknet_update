@@ -1,3 +1,5 @@
+use array::ArrayTrait;
+
 use starknet::{
     get_contract_address, deploy_syscall, ClassHash, contract_address_const, ContractAddress,
 };
@@ -37,7 +39,9 @@ fn jdoe() -> ContractAddress {
 }
 
 fn deploy() -> ILendingPlatformDispatcher {
-    let constructor_args: Array<felt252> = ArrayTrait::new();
+    let owner = get_contract_address();
+    let mut constructor_args: Array<felt252> = ArrayTrait::new();
+    Serde::serialize(@owner, ref constructor_args);
     let (address, _) = deploy_syscall(
         LendingPlatform::TEST_CLASS_HASH.try_into().unwrap(), 0, constructor_args.span(), true
     ).expect('DEPLOY FAILED');
@@ -183,6 +187,14 @@ fn test_repay_not_full_amount() {
 
 #[test]
 #[available_gas(3000000)]
+fn test_get_owner() {
+    let lending = deploy();
+    let owner = get_contract_address();
+    assert(owner == lending.owner(), 'Wrong owner');
+}
+
+#[test]
+#[available_gas(3000000)]
 fn test_transfer_ownership() {
     let lending = deploy();
     let new_owner = alice();
@@ -191,4 +203,6 @@ fn test_transfer_ownership() {
     lending.deposit(bob(), 10);
     let event = pop_log::<OwnerShipTransferred>(lending.contract_address).unwrap();
     assert(event.new_owner == new_owner, 'Wrong new_owner in event');
+    assert(lending.owner() == new_owner, 'Wrong owner');
 }
+

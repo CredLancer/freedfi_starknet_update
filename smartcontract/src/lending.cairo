@@ -9,6 +9,7 @@ trait ILendingPlatform<T> {
     fn repay(ref self: T, lender: ContractAddress, borrower: ContractAddress, amount: u256);
     fn getBalance(self: @T, lender: ContractAddress) -> u256;
     fn getBorrowedAmount(self: @T, borrower: ContractAddress) -> u256;
+    fn owner(self: @T) -> ContractAddress;
 }
 
 #[starknet::contract]
@@ -21,7 +22,7 @@ mod LendingPlatform{
         balances: LegacyMap<ContractAddress, u256>,
         borrowed_amount: LegacyMap<ContractAddress, u256>,
         has_active_loan: LegacyMap<ContractAddress, bool>,
-        owner: ContractAddress,
+        _owner: ContractAddress,
     }
 
     #[event]
@@ -57,8 +58,8 @@ mod LendingPlatform{
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState) {
-        self.owner.write(get_caller_address());
+    fn constructor(ref self: ContractState, owner: ContractAddress) {
+        self._owner.write(owner);
     }
 
     #[external(v0)]
@@ -111,18 +112,22 @@ mod LendingPlatform{
         fn getBorrowedAmount(self: @ContractState, borrower: ContractAddress) -> u256 {
             self.borrowed_amount.read(borrower)
         }
+
+        fn owner(self: @ContractState) -> ContractAddress {
+            self._owner.read()
+        }
     }
 
     #[generate_trait]
     impl PrivateMethods of PrivateMethodsTrait {
         fn _only_owner(self: @ContractState) {
             let caller = get_caller_address();
-            assert(caller == self.owner.read(), 'Caller is not the owner');
+            assert(caller == self._owner.read(), 'Caller is not the owner');
         }
 
         fn _transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
-            let previous_owner: ContractAddress = self.owner.read();
-            self.owner.write(new_owner);
+            let previous_owner: ContractAddress = self._owner.read();
+            self._owner.write(new_owner);
             self.emit(OwnerShipTransferred{ previous_owner: previous_owner, new_owner: new_owner })
         }
     }
