@@ -20,7 +20,9 @@ fn jdoe() -> ContractAddress {
 }
 
 fn deploy() -> ISimpleCredentialsVerifierDispatcher {
-    let constructor_args: Array<felt252> = ArrayTrait::new();
+    let owner = get_contract_address();
+    let mut constructor_args: Array<felt252> = ArrayTrait::new();
+    Serde::serialize(@owner, ref constructor_args);
     let (address, _) = deploy_syscall(
         SimpleCredentialsVerifier::TEST_CLASS_HASH.try_into().unwrap(), 0, constructor_args.span(), true
     ).expect('DEPLOY FAILED');
@@ -45,6 +47,14 @@ fn test_add_skill_only_owner() {
     set_contract_address(alice());
     verifier.addSkill(alice(), skill);
     assert(verifier.hasRequiredSkill(alice(), skill), 'Fail to verify skill');
+}
+
+#[test]
+#[available_gas(3000000)]
+fn test_get_owner() {
+    let lending = deploy();
+    let owner = get_contract_address();
+    assert(owner == lending.owner(), 'Wrong owner');
 }
 
 #[test]

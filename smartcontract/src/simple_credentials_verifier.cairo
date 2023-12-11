@@ -12,6 +12,7 @@ trait ISimpleCredentialsVerifier<T> {
 
     fn hasOpenContracts(self: @T, freelancer: ContractAddress, amount: u256) -> bool;
     fn hasRequiredSkill(self: @T, freelancer: ContractAddress, skill: u64) -> bool;
+    fn owner(self: @T) -> ContractAddress;
 }
 
 
@@ -31,7 +32,7 @@ mod SimpleCredentialsVerifier{
 
     #[storage]
     struct Storage {
-        owner: ContractAddress,
+        _owner: ContractAddress,
         contracts: LegacyMap<ContractAddress, List<FreelancingContract>>,
         skills: LegacyMap<ContractAddress, List<u64>>,
     }
@@ -49,8 +50,8 @@ mod SimpleCredentialsVerifier{
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState) {
-        self.owner.write(get_caller_address());
+    fn constructor(ref self: ContractState, owner: ContractAddress) {
+        self._owner.write(owner);
     }
 
     #[external(v0)]
@@ -88,18 +89,22 @@ mod SimpleCredentialsVerifier{
                 index += 1;
             }
         }
+
+        fn owner(self: @ContractState) -> ContractAddress {
+            self._owner.read()
+        }
     }
 
     #[generate_trait]
     impl PrivateMethods of PrivateMethodsTrait {
         fn _only_owner(self: @ContractState) {
             let caller = get_caller_address();
-            assert(caller == self.owner.read(), 'Caller is not the owner');
+            assert(caller == self._owner.read(), 'Caller is not the owner');
         }
 
         fn _transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
-            let previous_owner: ContractAddress = self.owner.read();
-            self.owner.write(new_owner);
+            let previous_owner: ContractAddress = self._owner.read();
+            self._owner.write(new_owner);
             self.emit(OwnerShipTransferred{ previous_owner: previous_owner, new_owner: new_owner })
         }
     }
